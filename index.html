@@ -445,6 +445,15 @@
       window.scrollTo(0, 0);
       [i - 1, i + 1].forEach(function (j) { if (dates[j]) fetchDay(dates[j]).catch(function () {}); });
     }).catch(function (e) {
+      // 목록에는 있는데 파일이 없을 수 있다(내린 직후 GitHub 캐시가 남는 경우).
+      // 그 날짜는 목록에서 빼고 이웃 날짜를 보여준다.
+      var gone = dates.indexOf(d);
+      if (gone >= 0 && dates.length > 1) {
+        dates.splice(gone, 1);
+        delete cache[d];
+        show(Math.min(gone, dates.length - 1), true);
+        return;
+      }
       $("daysub").textContent = "";
       $("sheet").innerHTML = '<div class="msg">' + d + " 보고서를 불러오지 못했습니다.<br>" + esc(e.message) + "</div>";
     });
@@ -471,11 +480,21 @@
       var want = (location.hash || "").replace("#", "");
       var i = dates.indexOf(want);
       if (i < 0) i = dates.length - 1;
-      return fetchDay(dates[i]).then(function () {
+
+      // 고른 날짜의 파일이 없으면 더 이전 날짜로 내려가며 찾는다.
+      // 암호가 틀린 것과 파일이 없는 것을 구분해야 하므로 여기서 한 번은 실제로 풀어 본다.
+      function tryFrom(j) {
+        return fetchDay(dates[j]).then(function () { return j; }, function (e) {
+          if (e && e.message === "auth") throw e;
+          if (j > 0) return tryFrom(j - 1);
+          throw e;
+        });
+      }
+      return tryFrom(i).then(function (j) {
         store(PW_KEY, pw);
         $("err").textContent = "";
         $("gate").hidden = true;
-        show(i, false);
+        show(j, false);
       });
     }).catch(function (e) {
       key = null;
