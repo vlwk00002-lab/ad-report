@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>광고누적성과</title>
+<style>
+  :root{
+    --paper:#ffffff;
+    --ground:#f6f6f7;
+    --ink:#111214;
+    --ink2:#5f6165;
+    --mute:#8a8c90;
+    --line:#e4e4e6;
+    --rule:#33343a;
+    --band:#f4f4f5;
+    --zebra:#fafafa;
+    --live:#0a7d32;
+    --alarm:#c0201c;
+    --alarmbg:#fff4f4;
+    --alarmline:#e8a9a7;
+    --shadow:0 1px 2px rgba(17,18,20,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#1a1b1e;
+      --ground:#141517;
+      --ink:#ececee;
+      --ink2:#a6a8ad;
+      --mute:#84868b;
+      --line:#2d2f33;
+      --rule:#71747a;
+      --band:#232529;
+      --zebra:#1f2023;
+      --live:#4fb572;
+      --alarm:#ef6e6a;
+      --alarmbg:#2a1c1c;
+      --alarmline:#5d3533;
+      --shadow:0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1a1b1e;
+    --ground:#141517;
+    --ink:#ececee;
+    --ink2:#a6a8ad;
+    --mute:#84868b;
+    --line:#2d2f33;
+    --rule:#71747a;
+    --band:#232529;
+    --zebra:#1f2023;
+    --live:#4fb572;
+    --alarm:#ef6e6a;
+    --alarmbg:#2a1c1c;
+    --alarmline:#5d3533;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-text-size-adjust:100%;
+  }
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ── 날짜 바 ───────────────────────────── */
+  .bar{
+    position:sticky;
+    top:env(safe-area-inset-top,0px);
+    z-index:20;
+    display:grid;
+    grid-template-columns:52px 1fr 52px;
+    align-items:center;
+    gap:4px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    padding:9px 8px;
+  }
+  .nav{
+    appearance:none;
+    -webkit-appearance:none;
+    width:100%;
+    height:42px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--paper);
+    color:var(--ink);
+    font-size:21px;
+    line-height:1;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:background .12s ease,border-color .12s ease;
+  }
+  .nav:hover:not(:disabled){background:var(--band);border-color:var(--rule)}
+  .nav:disabled{opacity:.24;cursor:default}
+  .nav:focus-visible{outline:2px solid var(--rule);outline-offset:2px}
+  .barmid{text-align:center;min-width:0}
+  .day{
+    margin:0;
+    font-size:18px;
+    font-weight:700;
+    letter-spacing:-.01em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .daysub{color:var(--mute);font-size:11.5px;margin-top:1px}
+
+  /* ── 본문 ─────────────────────────────── */
+  .wrap{max-width:1240px;margin:0 auto;padding:16px;padding-block:18px 56px}
+  .sheet{background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px;overflow:hidden}
+  @media (max-width:700px){ .wrap{padding-inline:10px} .sheet{padding:12px;border-radius:8px} }
+
+  .alarm{
+    background:var(--alarmbg);border:1px solid var(--alarmline);
+    border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:13px;
+  }
+  .alarm b{color:var(--alarm)}
+  .alarm ul{margin:6px 0 0 18px;padding:0}
+
+  /* 기준점 */
+  .bench{border:2px solid var(--rule);border-radius:7px;padding:11px 13px;margin-bottom:18px;background:var(--ground)}
+  .benchtag{
+    background:var(--rule);color:var(--paper);padding:2px 8px;border-radius:3px;
+    font-size:10.5px;font-weight:700;letter-spacing:.5px;
+  }
+  .benchname{font-size:15px;font-weight:700;margin-left:8px}
+  .benchmeta{color:var(--mute);font-size:11px;margin-left:8px}
+  .benchgrid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));
+    gap:9px 14px;margin-top:10px;
+  }
+  .benchgrid div{min-width:0}
+  .benchgrid dt{color:var(--mute);font-size:10.5px;white-space:nowrap}
+  .benchgrid dd{margin:1px 0 0;font-size:14.5px;font-weight:700;white-space:nowrap}
+  .benchfoot{color:var(--mute);font-size:11px;margin-top:9px}
+
+  /* ── 표 (넓은 화면) ────────────────────── */
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th{
+    padding:8px 9px;border-bottom:2px solid var(--rule);background:var(--band);
+    text-align:right;white-space:nowrap;font-size:11.5px;font-weight:600;color:var(--ink);
+  }
+  th.l{text-align:left}
+  td{padding:6px 9px;text-align:right;white-space:nowrap}
+  td.l{text-align:left}
+  tr.d1 td{color:var(--mute);font-size:12px}
+  tr.cum td{color:var(--ink);font-size:13px;font-weight:600;border-bottom:1px solid var(--line)}
+  td.nm{vertical-align:top;border-bottom:1px solid var(--line)}
+  td.em{font-size:16px;vertical-align:middle;border-bottom:1px solid var(--line);text-align:left}
+  .nmname{font-size:13px;font-weight:600}
+  .nmsub{font-size:11px;margin-top:2px;color:var(--mute)}
+  .nmsub .on{color:var(--live)}
+  .nmraw{color:var(--mute);font-size:11px}
+  .nmwarn{color:var(--alarm);font-size:11px}
+  tr.sum td{background:var(--zebra)}
+  td.sumlab{font-weight:700}
+
+  /* ── 카드 (좁은 화면) ──────────────────── */
+  .cards{display:flex;flex-direction:column;gap:10px}
+  .card{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .card.total{border-color:var(--rule);border-width:2px}
+  .cardhead{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;background:var(--band);border-bottom:1px solid var(--line)}
+  .cardemo{font-size:19px;line-height:1.2}
+  .cardname{font-size:14px;font-weight:700;word-break:break-all}
+  .cardmeta{font-size:11px;color:var(--mute);margin-top:1px}
+  .cardmeta .on{color:var(--live)}
+  .grid{display:grid;grid-template-columns:1fr auto auto;gap:0}
+  .grid > *{padding:5px 12px;border-bottom:1px solid var(--line);font-size:13px;min-width:0}
+  .grid > *:nth-child(3n){text-align:right;font-weight:600}
+  .grid > *:nth-child(3n+2){text-align:right;color:var(--mute);font-size:12px}
+  .grid .hd{
+    background:var(--zebra);font-size:10.5px;color:var(--mute);
+    text-transform:none;letter-spacing:.3px;font-weight:600;padding-top:6px;padding-bottom:6px;
+  }
+  .grid .hd:nth-child(3n),.grid .hd:nth-child(3n+2){color:var(--mute);font-weight:600;font-size:10.5px}
+  .grid .k{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .grid > *:nth-last-child(-n+3){border-bottom:0}
+
+  /* 표/카드 전환 */
+  .cards{display:none}
+  @media (max-width:860px){
+    .tablewrap{display:none}
+    .cards{display:flex}
+  }
+
+  /* 각주 */
+  details.notes{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+  details.notes summary{
+    cursor:pointer;color:var(--ink2);font-size:12px;font-weight:600;
+    list-style:none;display:inline-flex;align-items:center;gap:5px;
+  }
+  details.notes summary::-webkit-details-marker{display:none}
+  details.notes summary::before{content:"▸";font-size:10px;transition:transform .15s ease}
+  details.notes[open] summary::before{transform:rotate(90deg)}
+  .notebody{color:var(--mute);font-size:11.5px;line-height:1.85;margin-top:8px}
+  .notebody b{color:var(--ink2)}
+
+  .stamp{color:var(--mute);font-size:11px;text-align:center;margin-top:14px}
+
+  /* ── 암호 ─────────────────────────────── */
+  .gate{
+    position:fixed;inset:0;z-index:50;background:var(--ground);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .gatebox{width:100%;max-width:300px;text-align:center}
+  .gatetitle{font-size:16px;font-weight:700}
+  .gatesub{color:var(--mute);font-size:12px;margin-top:5px;margin-bottom:16px}
+  .gate input{
+    width:100%;padding:11px 13px;font-size:16px;border:1px solid var(--line);
+    border-radius:8px;background:var(--paper);color:var(--ink);text-align:center;
+    font-family:inherit;
+  }
+  .gate input:focus{outline:2px solid var(--rule);outline-offset:1px;border-color:var(--rule)}
+  .gate button{
+    width:100%;margin-top:9px;padding:11px;font-size:14px;font-weight:600;
+    border:0;border-radius:8px;background:var(--rule);color:var(--paper);
+    cursor:pointer;font-family:inherit;
+  }
+  .gate button:disabled{opacity:.5;cursor:default}
+  .gateerr{color:var(--alarm);font-size:12px;margin-top:10px;min-height:16px}
+
+  .msg{text-align:center;color:var(--mute);padding:48px 16px;font-size:13px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="bar">
+  <button class="nav" id="prev" type="button" aria-label="전일 보고서" disabled>&#8592;</button>
+  <div class="barmid">
+    <h1 class="day" id="day">광고누적성과</h1>
+    <div class="daysub" id="daysub">불러오는 중</div>
+  </div>
+  <button class="nav" id="next" type="button" aria-label="다음날 보고서" disabled>&#8594;</button>
+</div>
+
+<div class="wrap"><div class="sheet" id="sheet"><div class="msg">불러오는 중…</div></div></div>
+
+<div class="gate" id="gate" hidden>
+  <div class="gatebox">
+    <div class="gatetitle">광고누적성과</div>
+    <div class="gatesub">암호를 입력하세요</div>
+    <input id="pw" type="password" inputmode="numeric" autocomplete="current-password" aria-label="암호">
+    <button id="go" type="button">열기</button>
+    <div class="gateerr" id="err"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  var COLS = ["광고비","DB","DB당단가","유입","유입당비용","유입률",
+              "체험완료","체험당비용","체험완료율","전환","전환당비용","예상전환당비용"];
+  var PW_KEY = "adreport.pw";
+  var manifest = null, key = null, dates = [], idx = -1, cache = {};
+
+  var $ = function (id) { return document.getElementById(id); };
+  var enc = new TextEncoder(), dec = new TextDecoder();
+
+  function store(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function b64(s) { var r = atob(s), a = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) a[i] = r.charCodeAt(i); return a; }
+  function cat(a, b) { var o = new Uint8Array(a.length + b.length); o.set(a, 0); o.set(b, a.length); return o; }
+
+  // 암호 → 키. 사이트 전체가 소금 하나를 쓰므로 한 번만 계산한다.
+  function derive(pw, salt, iter) {
+    return crypto.subtle
+      .importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"])
+      .then(function (base) {
+        return crypto.subtle.deriveBits(
+          { name: "PBKDF2", salt: salt, iterations: iter, hash: "SHA-256" }, base, 512);
+      })
+      .then(function (bits) {
+        var b = new Uint8Array(bits);
+        return Promise.all([hmac(b.slice(0, 32)), hmac(b.slice(32, 64))]);
+      })
+      .then(function (p) { return { e: p[0], m: p[1] }; });
+  }
+  function hmac(raw) {
+    return crypto.subtle.importKey("raw", raw, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  }
+
+  function decrypt(payload, k) {
+    var raw = b64(payload);
+    var nonce = raw.slice(0, 12), tag = raw.slice(12, 44), ct = raw.slice(44);
+    return crypto.subtle.sign("HMAC", k.m, cat(nonce, ct)).then(function (sig) {
+      var t = new Uint8Array(sig), ok = t.length === tag.length, diff = 0;
+      for (var i = 0; i < tag.length; i++) diff |= t[i] ^ tag[i];
+      if (!ok || diff !== 0) throw new Error("auth");
+      var blocks = [], n = Math.ceil(ct.length / 32);
+      for (var j = 0; j < n; j++) {
+        var ctr = new Uint8Array(16);
+        ctr.set(nonce, 0);
+        ctr[12] = (j >>> 24) & 255; ctr[13] = (j >>> 16) & 255;
+        ctr[14] = (j >>> 8) & 255;  ctr[15] = j & 255;
+        blocks.push(crypto.subtle.sign("HMAC", k.e, ctr));
+      }
+      return Promise.all(blocks).then(function (ks) {
+        var out = new Uint8Array(ct.length);
+        for (var j = 0; j < ks.length; j++) {
+          var s = new Uint8Array(ks[j]), off = j * 32;
+          for (var b = 0; b < 32 && off + b < ct.length; b++) out[off + b] = ct[off + b] ^ s[b];
+        }
+        return JSON.parse(dec.decode(out));
+      });
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function stateCls(s) { return s === "운영중" ? ' class="on"' : ""; }
+  function label(d) {
+    var p = d.split("-");
+    return Number(p[1]) + "월 " + Number(p[2]) + "일 광고누적성과";
+  }
+
+  // ── 렌더 ────────────────────────────────
+  function render(r) {
+    var h = [];
+
+    if (r.warn && r.warn.length) {
+      h.push('<div class="alarm"><b>데이터 확인 필요</b><ul>');
+      r.warn.forEach(function (w) { h.push("<li>" + esc(w) + "</li>"); });
+      h.push("</ul></div>");
+    }
+
+    if (r.bench) {
+      var b = r.bench;
+      h.push('<div class="bench"><div>');
+      h.push('<span class="benchtag">기준점</span>');
+      h.push('<span class="benchname">' + esc(b.emoji) + " " + esc(b.name) + "</span>");
+      h.push('<span class="benchmeta">' + esc(b.state) + " · " + esc(b.period) + " · 누적</span>");
+      h.push('</div><dl class="benchgrid">');
+      b.cells.forEach(function (c) {
+        h.push("<div><dt>" + esc(c[0]) + '</dt><dd class="num">' + esc(c[1]) + "</dd></div>");
+      });
+      h.push('</dl><div class="benchfoot">아래 광고들의 수치를 이 값과 견주어 보세요.</div></div>');
+    }
+
+    // 표
+    h.push('<div class="tablewrap"><table><thead><tr>');
+    h.push('<th class="l">광고명</th><th class="l">이모지</th><th class="l">구분</th>');
+    COLS.forEach(function (c) { h.push("<th>" + esc(c) + "</th>"); });
+    h.push("</tr></thead><tbody>");
+
+    r.rows.forEach(function (row) {
+      var sub = row.no_ad
+        ? '<div class="nmwarn">광고비 미입력</div>'
+        : (row.raw && row.raw !== row.name ? '<div class="nmraw">광고탭: ' + esc(row.raw) + "</div>" : "");
+      h.push("<tr class='d1'>");
+      h.push('<td class="l nm" rowspan="2"><div class="nmname">' + esc(row.name) + "</div>" + sub +
+             '<div class="nmsub"><span' + stateCls(row.state) + ">" + esc(row.state) + "</span> · " + esc(row.period) + "</div></td>");
+      h.push('<td class="em" rowspan="2">' + esc(row.emoji || "-") + "</td>");
+      h.push('<td class="l">전일</td>');
+      row.d1.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
+      h.push("</tr><tr class='cum'>");
+      h.push('<td class="l">누적</td>');
+      row.cum.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
+      h.push("</tr>");
+    });
+
+    h.push('<tr class="sum d1"><td class="l sumlab" colspan="2" rowspan="2">합계</td><td class="l">전일</td>');
+    r.total.d1.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
+    h.push('</tr><tr class="sum cum"><td class="l">누적</td>');
+    r.total.cum.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
+    h.push("</tr></tbody></table></div>");
+
+    // 카드
+    h.push('<div class="cards">');
+    r.rows.forEach(function (row) {
+      var sub = row.no_ad
+        ? '<div class="nmwarn">광고비 미입력</div>'
+        : (row.raw && row.raw !== row.name ? '<div class="nmraw">광고탭: ' + esc(row.raw) + "</div>" : "");
+      h.push('<section class="card"><div class="cardhead"><div class="cardemo">' + esc(row.emoji || "·") + "</div><div>");
+      h.push('<div class="cardname">' + esc(row.name) + "</div>" + sub);
+      h.push('<div class="cardmeta"><span' + stateCls(row.state) + ">" + esc(row.state) + "</span> · " + esc(row.period) + "</div>");
+      h.push("</div></div>");
+      h.push(cardGrid(row.d1, row.cum));
+      h.push("</section>");
+    });
+    h.push('<section class="card total"><div class="cardhead"><div class="cardemo">Σ</div><div>');
+    h.push('<div class="cardname">합계</div><div class="cardmeta">' + esc(r.rows.length) + "개 광고</div></div></div>");
+    h.push(cardGrid(r.total.d1, r.total.cum));
+    h.push("</section></div>");
+
+    h.push('<details class="notes"><summary>계산 기준</summary><div class="notebody">' + notes(r.date) + "</div></details>");
+    h.push('<div class="stamp">' + esc(r.generated || "") + " 생성</div>");
+
+    $("sheet").innerHTML = h.join("");
+  }
+
+  function cardGrid(d1, cum) {
+    var g = ['<div class="grid"><div class="hd">&nbsp;</div><div class="hd">전일</div><div class="hd">누적</div>'];
+    for (var i = 0; i < COLS.length; i++) {
+      var a = d1[i] == null || d1[i] === "" ? "" : d1[i];
+      var b = cum[i] == null || cum[i] === "" ? "" : cum[i];
+      if (a === "" && b === "") continue;
+      g.push('<div class="k">' + esc(COLS[i]) + '</div><div class="num">' + esc(a) + '</div><div class="num">' + esc(b) + "</div>");
+    }
+    g.push("</div>");
+    return g.join("");
+  }
+
+  function notes(d) {
+    return "<b>전일</b> = " + esc(d) + " 하루치 · <b>누적</b> = 광고 시작일부터 " + esc(d) + "까지 합산<br>" +
+      "DB = 광고관리자 결과 수 · 유입 = 카카오 채팅 유입(같은 방·같은 광고·같은 날은 1건) · 유입률 = 유입 ÷ DB<br>" +
+      "유입당비용 = 광고비 ÷ 유입 · 체험당비용 = 광고비 ÷ 체험완료 · 체험완료율 = 체험완료 ÷ 유입 · 전환당비용 = 광고비 ÷ 전환<br>" +
+      "예상전환당비용 = 체험당비용 × 4 ~ × 5 (누적에만 표시)<br>" +
+      "체험완료는 상담 대화 원문으로 판정하고, 완료 시각 직전의 마지막 유입 캠페인에 1건만 귀속합니다(합계 = 실제 사람 수).<br>" +
+      "누적은 해당 광고가 광고탭에 처음 등장한 날부터 셉니다(광고 시작 전 유입·전환은 제외).<br>" +
+      "분모가 0이면 '-'로 표시합니다. 전환은 유입일 기준으로 귀속되므로 최근 유입분은 나중에 늘어납니다.<br>" +
+      "광고비는 전일까지만 기록되어 당일치는 포함되지 않습니다.";
+  }
+
+  // ── 이동 ────────────────────────────────
+  function fetchDay(d) {
+    if (cache[d]) return Promise.resolve(cache[d]);
+    return fetch("data/" + d + ".json", { cache: "no-cache" })
+      .then(function (res) { if (!res.ok) throw new Error("http " + res.status); return res.text(); })
+      .then(function (t) { return decrypt(t.trim(), key); })
+      .then(function (r) { cache[d] = r; return r; });
+  }
+
+  function show(i, push) {
+    if (i < 0 || i >= dates.length) return;
+    idx = i;
+    var d = dates[i];
+    $("day").textContent = label(d);
+    $("daysub").textContent = "불러오는 중…";
+    $("prev").disabled = i <= 0;
+    $("next").disabled = i >= dates.length - 1;
+    if (push) { try { history.replaceState(null, "", "#" + d); } catch (e) {} }
+    fetchDay(d).then(function (r) {
+      if (dates[idx] !== d) return;
+      $("daysub").textContent = r.date + " 까지 · 광고 " + r.rows.length + "건 · 전일과 누적 두 줄";
+      render(r);
+      window.scrollTo(0, 0);
+      [i - 1, i + 1].forEach(function (j) { if (dates[j]) fetchDay(dates[j]).catch(function () {}); });
+    }).catch(function (e) {
+      $("daysub").textContent = "";
+      $("sheet").innerHTML = '<div class="msg">' + d + " 보고서를 불러오지 못했습니다.<br>" + esc(e.message) + "</div>";
+    });
+  }
+
+  $("prev").addEventListener("click", function () { show(idx - 1, true); });
+  $("next").addEventListener("click", function () { show(idx + 1, true); });
+  document.addEventListener("keydown", function (e) {
+    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if (e.key === "ArrowLeft") show(idx - 1, true);
+    if (e.key === "ArrowRight") show(idx + 1, true);
+  });
+  var tx = 0, ty = 0;
+  document.addEventListener("touchstart", function (e) { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener("touchend", function (e) {
+    var dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 2) show(dx < 0 ? idx + 1 : idx - 1, true);
+  }, { passive: true });
+
+  // ── 시작 ────────────────────────────────
+  function start(pw, fromGate) {
+    return derive(pw, b64(manifest.salt), manifest.iter).then(function (k) {
+      key = k;
+      var want = (location.hash || "").replace("#", "");
+      var i = dates.indexOf(want);
+      if (i < 0) i = dates.length - 1;
+      return fetchDay(dates[i]).then(function () {
+        store(PW_KEY, pw);
+        $("gate").hidden = true;
+        show(i, false);
+      });
+    }).catch(function (e) {
+      key = null;
+      if (e && e.message === "auth") {
+        store(PW_KEY, null);
+        $("gate").hidden = false;
+        $("err").textContent = fromGate ? "암호가 맞지 않습니다." : "";
+        $("pw").value = "";
+        $("pw").focus();
+        $("go").disabled = false;
+      } else {
+        $("sheet").innerHTML = '<div class="msg">보고서를 불러오지 못했습니다.<br>' + esc(e.message) + "</div>";
+        $("gate").hidden = true;
+      }
+      throw e;
+    });
+  }
+
+  $("go").addEventListener("click", function () {
+    var v = $("pw").value;
+    if (!v) return;
+    $("go").disabled = true;
+    $("err").textContent = "확인 중…";
+    start(v, true).catch(function () {});
+  });
+  $("pw").addEventListener("keydown", function (e) { if (e.key === "Enter") $("go").click(); });
+
+  fetch("data/index.json", { cache: "no-cache" })
+    .then(function (r) { return r.json(); })
+    .then(function (m) {
+      manifest = m;
+      dates = (m.dates || []).slice().sort();
+      if (!dates.length) { $("sheet").innerHTML = '<div class="msg">아직 보고서가 없습니다.</div>'; $("daysub").textContent = ""; return; }
+      var saved = load(PW_KEY);
+      if (saved) return start(saved, false).catch(function () {});
+      $("gate").hidden = false;
+      $("pw").focus();
+    })
+    .catch(function (e) {
+      $("daysub").textContent = "";
+      $("sheet").innerHTML = '<div class="msg">목록을 불러오지 못했습니다.<br>' + esc(e.message) + "</div>";
+    });
+})();
+</script>
+
+</body>
+</html>
