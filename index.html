@@ -59,6 +59,7 @@
   }
 
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   body{
     margin:0;
     background:var(--ground);
@@ -249,7 +250,7 @@
 
 <div class="gate" id="gate" hidden>
   <div class="gatebox">
-    <div class="gatetitle">광고누적성과</div>
+    <div class="gatetitle">마케팅팀 화이팅</div>
     <div class="gatesub">암호를 입력하세요</div>
     <input id="pw" type="password" inputmode="numeric" autocomplete="current-password" aria-label="암호">
     <button id="go" type="button">열기</button>
@@ -478,6 +479,7 @@
       if (i < 0) i = dates.length - 1;
       return fetchDay(dates[i]).then(function () {
         store(PW_KEY, pw);
+        $("err").textContent = "";
         $("gate").hidden = true;
         show(i, false);
       });
