@@ -164,7 +164,6 @@
   .nmsub .on{color:var(--live)}
   .nmraw{color:var(--mute);font-size:11px}
   .nmwarn{color:var(--alarm);font-size:11px}
-  .nmnote{color:var(--ink2);font-size:11px;margin-top:3px;line-height:1.5;white-space:normal;max-width:260px}
   tr.sum td{background:var(--zebra)}
   td.sumlab{font-weight:700}
 
@@ -177,7 +176,6 @@
   .cardname{font-size:14px;font-weight:700;word-break:break-all}
   .cardmeta{font-size:11px;color:var(--mute);margin-top:1px}
   .cardmeta .on{color:var(--live)}
-  .cardnote{color:var(--ink2);font-size:11px;margin-top:4px;line-height:1.5;white-space:normal}
   .grid{display:grid;grid-template-columns:1fr auto auto;gap:0}
   .grid > *{padding:5px 12px;border-bottom:1px solid var(--line);font-size:13px;min-width:0}
   .grid > *:nth-child(3n){text-align:right;font-weight:600}
@@ -203,6 +201,10 @@
   .notebody{color:var(--mute);font-size:11.5px;line-height:1.85}
   .notebody b{color:var(--ink2)}
 
+  /* 그 날만 달리 읽히는 행 설명 — 표 밖, 계산 기준 위 */
+  .rownotes{margin-top:12px;font-size:11.5px;color:var(--mute);line-height:1.7}
+  .rownotes div{margin-top:3px}
+  .rownotes b{color:var(--ink2);font-weight:600}
   .stamp{color:var(--mute);font-size:11px;text-align:center;margin-top:14px}
 
   /* ── 암호 ─────────────────────────────── */
@@ -358,9 +360,8 @@
         ? '<div class="nmwarn">광고비 미입력</div>'
         : (row.raw && row.raw !== row.name ? '<div class="nmraw">광고탭: ' + esc(row.raw) + "</div>" : "");
       h.push("<tr class='d1'>");
-      var note = row.note ? '<div class="nmnote">' + esc(row.note) + "</div>" : "";
       h.push('<td class="l nm" rowspan="2"><div class="nmname">' + esc(row.name) + "</div>" + sub +
-             '<div class="nmsub"><span' + stateCls(row.state) + ">" + esc(row.state) + "</span> · " + esc(row.period) + "</div>" + note + "</td>");
+             '<div class="nmsub"><span' + stateCls(row.state) + ">" + esc(row.state) + "</span> · " + esc(row.period) + "</div></td>");
       h.push('<td class="em" rowspan="2">' + esc(row.emoji || "-") + "</td>");
       h.push('<td class="l">전일</td>');
       row.d1.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
@@ -385,7 +386,6 @@
       h.push('<section class="card"><div class="cardhead"><div class="cardemo">' + esc(row.emoji || "·") + "</div><div>");
       h.push('<div class="cardname">' + esc(row.name) + "</div>" + sub);
       h.push('<div class="cardmeta"><span' + stateCls(row.state) + ">" + esc(row.state) + "</span> · " + esc(row.period) + "</div>");
-      if (row.note) h.push('<div class="cardnote">' + esc(row.note) + "</div>");
       h.push("</div></div>");
       h.push(cardGrid(row.d1, row.cum));
       h.push("</section>");
@@ -394,6 +394,15 @@
     h.push('<div class="cardname">합계</div><div class="cardmeta">' + esc(r.rows.length) + "개 광고</div></div></div>");
     h.push(cardGrid(r.total.d1, r.total.cum));
     h.push("</section></div>");
+
+    var rn = r.rows.filter(function (x) { return x.note; });
+    if (rn.length) {
+      h.push('<div class="rownotes">');
+      rn.forEach(function (x) {
+        h.push("<div><b>" + esc(x.emoji || "") + " " + esc(x.name) + "</b> &mdash; " + esc(x.note) + "</div>");
+      });
+      h.push("</div>");
+    }
 
     h.push('<div class="notes"><div class="noteshead">계산 기준</div><div class="notebody">' + notes(r.date) + "</div></div>");
     h.push('<div class="stamp">' + esc(r.generated || "") + " 생성</div>");
