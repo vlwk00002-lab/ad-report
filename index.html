@@ -195,16 +195,10 @@
     .cards{display:flex}
   }
 
-  /* 각주 */
-  details.notes{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
-  details.notes summary{
-    cursor:pointer;color:var(--ink2);font-size:12px;font-weight:600;
-    list-style:none;display:inline-flex;align-items:center;gap:5px;
-  }
-  details.notes summary::-webkit-details-marker{display:none}
-  details.notes summary::before{content:"▸";font-size:10px;transition:transform .15s ease}
-  details.notes[open] summary::before{transform:rotate(90deg)}
-  .notebody{color:var(--mute);font-size:11.5px;line-height:1.85;margin-top:8px}
+  /* 각주 — 메일과 같이 항상 펼쳐 둔다 */
+  .notes{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+  .noteshead{color:var(--ink2);font-size:12px;font-weight:600;margin-bottom:6px}
+  .notebody{color:var(--mute);font-size:11.5px;line-height:1.85}
   .notebody b{color:var(--ink2)}
 
   .stamp{color:var(--mute);font-size:11px;text-align:center;margin-top:14px}
@@ -397,7 +391,7 @@
     h.push(cardGrid(r.total.d1, r.total.cum));
     h.push("</section></div>");
 
-    h.push('<details class="notes"><summary>계산 기준</summary><div class="notebody">' + notes(r.date) + "</div></details>");
+    h.push('<div class="notes"><div class="noteshead">계산 기준</div><div class="notebody">' + notes(r.date) + "</div></div>");
     h.push('<div class="stamp">' + esc(r.generated || "") + " 생성</div>");
 
     $("sheet").innerHTML = h.join("");
