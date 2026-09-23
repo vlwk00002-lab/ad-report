@@ -188,6 +188,10 @@
   .cmeta .on{color:var(--live)}
   .cspend{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
   .cbody{border-top:1px solid var(--line);padding:10px 13px 13px}
+  /* 광고별 상세표는 좁은 화면에서도 그대로 둔다(가로 스크롤). 첫 칸은 고정. */
+  .ctable{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .ctable th.l,.ctable td.l{position:sticky;left:0;z-index:1;background:var(--paper)}
+  .ctable th.l{background:var(--band)}
   .cbody table{font-size:12.5px}
   .cbody td.l{font-weight:600}
   .cbody tr:last-child td{font-weight:700;border-top:1px solid var(--line)}
@@ -356,7 +360,7 @@
 "use strict";
 (function () {
   var COLS = ["광고비","DB","DB당단가","유입","유입당비용","유입률",
-              "체험완료","체험당비용","체험완료율","전환","전환당비용","예상전환당비용"];
+              "체험완료","체험당비용","체험완료율","전환","전환당비용"];
   var PW_KEY = "adreport.pw";
   var manifest = null, key = null, dates = [], idx = -1, cache = {};
 
@@ -522,10 +526,11 @@
     return "<b>전일</b> = " + esc(d) + " 하루치 · <b>누적</b> = 광고 시작일부터 " + esc(d) + "까지 합산<br>" +
       "DB = 광고관리자 결과 수 · 유입 = 카카오 채팅 유입(같은 방·같은 광고·같은 날은 1건) · 유입률 = 유입 ÷ DB<br>" +
       "유입당비용 = 광고비 ÷ 유입 · 체험당비용 = 광고비 ÷ 체험완료 · 체험완료율 = 체험완료 ÷ 유입 · 전환당비용 = 광고비 ÷ 전환<br>" +
-      "예상전환당비용 = 체험당비용 × 4 ~ × 5 (누적에만 표시)<br>" +
       "체험완료는 상담 대화 원문으로 판정하고, 완료 시각 직전의 마지막 유입 캠페인에 1건만 귀속합니다(합계 = 실제 사람 수).<br>" +
-      "누적은 해당 광고가 광고탭에 처음 등장한 날부터 셉니다(광고 시작 전 유입·전환은 제외).<br>" +
-      "분모가 0이면 '-'로 표시합니다. 전환은 유입일 기준으로 귀속되므로 최근 유입분은 나중에 늘어납니다.<br>" +
+      "누적은 해당 광고가 광고탭에 처음 등장한 날부터 셉니다(광고 시작 전 유입은 제외).<br>" +
+      "전환은 결제 직전의 마지막 유입 광고에 1건씩 귀속됩니다. 결제일이 아니라 그 유입일에 " +
+      "기록되므로 최근 유입분은 나중에 늘어납니다.<br>" +
+      "분모가 0이면 '-'로 표시합니다.<br>" +
       "광고비는 전일까지만 기록되어 당일치는 포함되지 않습니다.";
   }
 
@@ -599,7 +604,7 @@
   }
 
   function campTable(it) {
-    var h = ['<div class="tablewrap"><table><thead><tr><th class="l">구분</th>'];
+    var h = ['<div class="ctable"><table><thead><tr><th class="l">구분</th>'];
     camp.cols.forEach(function (c) { h.push("<th>" + esc(c) + "</th>"); });
     h.push("</tr></thead><tbody>");
     it.rows.forEach(function (r) {
@@ -611,11 +616,20 @@
   }
 
   function drawCamp() {
-    var q = ($("csearch") ? $("csearch").value : "").trim().toLowerCase();
+    var box = $("csearch");
+    if (!box) {
+      $("csheet").innerHTML =
+        '<input class="csearch" id="csearch" type="search" placeholder="광고 이름으로 찾기">' +
+        '<div id="clistwrap"></div>' +
+        '<div class="stamp">' + esc(camp.cutoff) + " 까지 · 광고 " + camp.items.length +
+        "건 · " + esc(camp.generated) + " 생성</div>";
+      box = $("csearch");
+    }
+    var q = box.value.trim().toLowerCase();
     var list = camp.items.filter(function (x) {
       return !q || (x.name + " " + x.raw + " " + x.emoji).toLowerCase().indexOf(q) >= 0;
     });
-    var h = ['<input class="csearch" id="csearch" type="search" placeholder="광고 이름으로 찾기" value="' + esc(q) + '">'];
+    var h = [];
     if (!list.length) {
       h.push('<div class="cempty">찾는 광고가 없습니다.</div>');
     } else {
@@ -634,9 +648,7 @@
       });
       h.push("</div>");
     }
-    h.push('<div class="stamp">' + esc(camp.cutoff) + " 까지 · 광고 " + camp.items.length +
-           "건 · " + esc(camp.generated) + " 생성</div>");
-    $("csheet").innerHTML = h.join("");
+    $("clistwrap").innerHTML = h.join("");
   }
 
   $("csheet").addEventListener("click", function (e) {
@@ -646,13 +658,15 @@
     openCamp[n] = !openCamp[n];
     drawCamp();
   });
+  var composing = false;
+  $("csheet").addEventListener("compositionstart", function (e) {
+    if (e.target.id === "csearch") composing = true;
+  });
+  $("csheet").addEventListener("compositionend", function (e) {
+    if (e.target.id === "csearch") { composing = false; drawCamp(); }
+  });
   $("csheet").addEventListener("input", function (e) {
-    if (e.target.id === "csearch") {
-      var v = e.target.value, pos = e.target.selectionStart;
-      drawCamp();
-      var el = $("csearch");
-      if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} }
-    }
+    if (e.target.id === "csearch" && !composing) drawCamp();
   });
   $("tabDay").addEventListener("click", function () { showTab("day"); });
   $("tabCamp").addEventListener("click", function () { showTab("camp"); });
