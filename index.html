@@ -116,6 +116,45 @@
   }
   .daysub{color:var(--mute);font-size:11.5px;margin-top:1px}
 
+  /* ── 캘린더 ──────────────────────────── */
+  .daybtn{
+    appearance:none;-webkit-appearance:none;background:none;border:0;padding:0;margin:0;
+    color:inherit;font:inherit;cursor:pointer;display:inline-flex;align-items:center;
+    gap:5px;max-width:100%;border-radius:5px;
+  }
+  .daybtn:focus-visible{outline:2px solid var(--rule);outline-offset:3px}
+  .calicon{flex:none;color:var(--mute);transition:color .12s ease}
+  .daybtn:hover .calicon,
+  .daybtn[aria-expanded="true"] .calicon{color:var(--ink)}
+  .calwrap{position:fixed;inset:0;z-index:30}
+  .cal{
+    position:absolute;left:50%;transform:translateX(-50%);
+    top:calc(env(safe-area-inset-top,0px) + 64px);
+    width:302px;max-width:calc(100vw - 24px);
+    background:var(--paper);border:1px solid var(--line);border-radius:11px;
+    box-shadow:0 10px 30px rgba(0,0,0,.22);padding:12px;
+  }
+  .calhead{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;margin-bottom:9px}
+  .calhead .m{text-align:center;font-size:14px;font-weight:700}
+  .calnav{
+    appearance:none;-webkit-appearance:none;height:30px;border:1px solid var(--line);
+    border-radius:7px;background:var(--paper);color:var(--ink);font-size:14px;cursor:pointer;
+  }
+  .calnav:hover:not(:disabled){background:var(--band)}
+  .calnav:disabled{opacity:.25;cursor:default}
+  .caldow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:5px}
+  .caldow span{text-align:center;font-size:10.5px;color:var(--mute)}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .calgrid .pad{height:34px}
+  .calgrid button{
+    height:34px;border:0;border-radius:7px;background:none;color:var(--ink);
+    font:inherit;font-size:12.5px;cursor:pointer;font-variant-numeric:tabular-nums;
+  }
+  .calgrid button:disabled{color:var(--mute);opacity:.3;cursor:default}
+  .calgrid button.has{background:var(--band);font-weight:600}
+  .calgrid button.has:hover{background:var(--line)}
+  .calgrid button.sel{background:var(--rule);color:var(--paper);font-weight:700}
+
   /* ── 본문 ─────────────────────────────── */
   .wrap{max-width:1240px;margin:0 auto;padding:16px;padding-block:18px 56px}
   .sheet{background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px;overflow:hidden}
@@ -238,10 +277,22 @@
 <div class="bar">
   <button class="nav" id="prev" type="button" aria-label="전일 보고서" disabled>&#8592;</button>
   <div class="barmid">
-    <h1 class="day" id="day">광고누적성과</h1>
+    <h1 class="day"><button class="daybtn" id="dayBtn" type="button" aria-expanded="false" aria-haspopup="dialog" aria-label="날짜 선택"><svg class="calicon" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="1.6" y="3.2" width="12.8" height="11.2" rx="2"/><path d="M1.6 6.6h12.8"/><path d="M5.2 1.6v3.2"/><path d="M10.8 1.6v3.2"/></svg><span id="day">광고누적성과</span></button></h1>
     <div class="daysub" id="daysub">불러오는 중</div>
   </div>
   <button class="nav" id="next" type="button" aria-label="다음날 보고서" disabled>&#8594;</button>
+</div>
+
+<div class="calwrap" id="calwrap" hidden>
+  <div class="cal" role="dialog" aria-label="날짜 선택">
+    <div class="calhead">
+      <button class="calnav" id="calprev" type="button" aria-label="이전 달">&#8249;</button>
+      <div class="m" id="calm"></div>
+      <button class="calnav" id="calnext" type="button" aria-label="다음 달">&#8250;</button>
+    </div>
+    <div class="caldow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+    <div class="calgrid" id="calgrid"></div>
+  </div>
 </div>
 
 <div class="wrap"><div class="sheet" id="sheet"><div class="msg">불러오는 중…</div></div></div>
@@ -451,6 +502,7 @@
     $("prev").disabled = i <= 0;
     $("next").disabled = i >= dates.length - 1;
     if (push) { try { history.replaceState(null, "", "#" + d); } catch (e) {} }
+    if (!$("calwrap").hidden) closeCal();
     fetchDay(d).then(function (r) {
       if (dates[idx] !== d) return;
       $("daysub").textContent = r.date + " 까지 · 광고 " + r.rows.length + "건 · 전일과 누적 두 줄";
@@ -472,10 +524,69 @@
     });
   }
 
+  // ── 캘린더 ──────────────────────────────
+  // 날짜가 쌓이면 화살표만으로는 멀리 못 간다. 가운데 날짜를 눌러 연다.
+  // 보고서가 있는 날만 누를 수 있고, 없는 날은 흐리게 둔다.
+  var calYM = null;
+
+  function ym(d) { return d.slice(0, 7); }
+  function shiftYM(s, n) {
+    var d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1 + n, 1);
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2);
+  }
+  function pad2(n) { return ("0" + n).slice(-2); }
+
+  function drawCal() {
+    var y = +calYM.slice(0, 4), m = +calYM.slice(5, 7);
+    var start = new Date(y, m - 1, 1).getDay();
+    var last = new Date(y, m, 0).getDate();
+    $("calm").textContent = y + "년 " + m + "월";
+    $("calprev").disabled = calYM <= ym(dates[0]);
+    $("calnext").disabled = calYM >= ym(dates[dates.length - 1]);
+    var g = [], i;
+    for (i = 0; i < start; i++) g.push('<div class="pad"></div>');
+    for (i = 1; i <= last; i++) {
+      var iso = calYM + "-" + pad2(i);
+      var on = dates.indexOf(iso) >= 0;
+      var cls = on ? (iso === dates[idx] ? "has sel" : "has") : "";
+      g.push('<button type="button" class="' + cls + '" data-d="' + iso + '"' +
+             (on ? "" : " disabled") + ">" + i + "</button>");
+    }
+    $("calgrid").innerHTML = g.join("");
+  }
+
+  function openCal() {
+    if (!dates.length) return;
+    calYM = ym(dates[idx] || dates[dates.length - 1]);
+    drawCal();
+    $("calwrap").hidden = false;
+    $("dayBtn").setAttribute("aria-expanded", "true");
+  }
+  function closeCal() {
+    $("calwrap").hidden = true;
+    $("dayBtn").setAttribute("aria-expanded", "false");
+  }
+
+  $("dayBtn").addEventListener("click", function () {
+    if ($("calwrap").hidden) openCal(); else closeCal();
+  });
+  $("calprev").addEventListener("click", function () { calYM = shiftYM(calYM, -1); drawCal(); });
+  $("calnext").addEventListener("click", function () { calYM = shiftYM(calYM, 1); drawCal(); });
+  $("calgrid").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("button[data-d]") : null;
+    if (!b || b.disabled) return;
+    var i = dates.indexOf(b.getAttribute("data-d"));
+    if (i >= 0) { closeCal(); show(i, true); }
+  });
+  $("calwrap").addEventListener("click", function (e) {
+    if (e.target === $("calwrap")) closeCal();   // 바깥을 누르면 닫는다
+  });
+
   $("prev").addEventListener("click", function () { show(idx - 1, true); });
   $("next").addEventListener("click", function () { show(idx + 1, true); });
   document.addEventListener("keydown", function (e) {
     if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if (e.key === "Escape") { closeCal(); return; }
     if (e.key === "ArrowLeft") show(idx - 1, true);
     if (e.key === "ArrowRight") show(idx + 1, true);
   });
