@@ -155,6 +155,44 @@
   .calgrid button.has:hover{background:var(--line)}
   .calgrid button.sel{background:var(--rule);color:var(--paper);font-weight:700}
 
+  /* ── 탭 ──────────────────────────────── */
+  .tabs{display:flex;gap:2px;margin:0 auto 12px;width:fit-content}
+  .tab{
+    appearance:none;-webkit-appearance:none;border:0;background:none;
+    color:var(--mute);font:inherit;font-size:13px;font-weight:600;
+    padding:7px 16px;border-radius:7px;cursor:pointer;
+  }
+  .tab:hover{color:var(--ink2)}
+  .tab.on{background:var(--paper);color:var(--ink);box-shadow:var(--shadow)}
+  .tab:focus-visible{outline:2px solid var(--rule);outline-offset:2px}
+
+  /* ── 광고별 ──────────────────────────── */
+  .csearch{
+    width:100%;padding:10px 12px;font-size:14px;border:1px solid var(--line);
+    border-radius:8px;background:var(--ground);color:var(--ink);font-family:inherit;
+    margin-bottom:12px;
+  }
+  .csearch:focus{outline:2px solid var(--rule);outline-offset:-1px;border-color:var(--rule)}
+  .clist{display:flex;flex-direction:column;gap:6px}
+  .citem{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .chead{
+    display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
+    width:100%;padding:11px 13px;background:none;border:0;cursor:pointer;
+    color:var(--ink);font:inherit;text-align:left;
+  }
+  .chead:hover{background:var(--band)}
+  .chead:focus-visible{outline:2px solid var(--rule);outline-offset:-2px}
+  .cemo{font-size:17px;line-height:1}
+  .cname{font-size:13.5px;font-weight:600;word-break:break-all}
+  .cmeta{font-size:11px;color:var(--mute);margin-top:2px}
+  .cmeta .on{color:var(--live)}
+  .cspend{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cbody{border-top:1px solid var(--line);padding:10px 13px 13px}
+  .cbody table{font-size:12.5px}
+  .cbody td.l{font-weight:600}
+  .cbody tr:last-child td{font-weight:700;border-top:1px solid var(--line)}
+  .cempty{color:var(--mute);font-size:13px;text-align:center;padding:28px 0}
+
   /* ── 본문 ─────────────────────────────── */
   .wrap{max-width:1240px;margin:0 auto;padding:16px;padding-block:18px 56px}
   .sheet{background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px;overflow:hidden}
@@ -295,7 +333,14 @@
   </div>
 </div>
 
-<div class="wrap"><div class="sheet" id="sheet"><div class="msg">불러오는 중…</div></div></div>
+<div class="wrap">
+  <div class="tabs" id="tabs" hidden>
+    <button class="tab on" id="tabDay" type="button">날짜별</button>
+    <button class="tab" id="tabCamp" type="button">광고별</button>
+  </div>
+  <div class="sheet" id="sheet"><div class="msg">불러오는 중…</div></div>
+  <div class="sheet" id="csheet" hidden></div>
+</div>
 
 <div class="gate" id="gate" hidden>
   <div class="gatebox">
@@ -524,6 +569,94 @@
     });
   }
 
+  // ── 광고별 보기 ─────────────────────────
+  // 날짜별이 주(主)다. 광고별은 끝난 광고를 나중에 찾기 위한 보조 화면이라
+  // 처음 열 때만 내려받는다(날짜별 화면 속도를 건드리지 않으려고).
+  var camp = null, campErr = null, openCamp = {};
+
+  function showTab(which) {
+    var day = which === "day";
+    $("tabDay").classList.toggle("on", day);
+    $("tabCamp").classList.toggle("on", !day);
+    $("sheet").hidden = !day;
+    $("csheet").hidden = day;
+    document.querySelector(".bar").hidden = !day;   // 광고별에선 날짜 이동이 의미 없다
+    if (!day) loadCamp();
+  }
+
+  function loadCamp() {
+    if (camp) { drawCamp(); return; }
+    if (campErr) { $("csheet").innerHTML = '<div class="cempty">' + esc(campErr) + "</div>"; return; }
+    $("csheet").innerHTML = '<div class="cempty">불러오는 중…</div>';
+    fetch("data/campaigns.json", { cache: "no-cache" })
+      .then(function (r) { if (!r.ok) throw new Error("아직 만들어지지 않았습니다."); return r.text(); })
+      .then(function (x) { return decrypt(x.trim(), key); })
+      .then(function (d) { camp = d; drawCamp(); })
+      .catch(function (e) {
+        campErr = e.message === "auth" ? "암호가 맞지 않습니다." : e.message;
+        $("csheet").innerHTML = '<div class="cempty">' + esc(campErr) + "</div>";
+      });
+  }
+
+  function campTable(it) {
+    var h = ['<div class="tablewrap"><table><thead><tr><th class="l">구분</th>'];
+    camp.cols.forEach(function (c) { h.push("<th>" + esc(c) + "</th>"); });
+    h.push("</tr></thead><tbody>");
+    it.rows.forEach(function (r) {
+      h.push('<tr><td class="l">' + esc(r.label) + "</td>");
+      r.cells.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
+      h.push("</tr>");
+    });
+    return h.join("") + "</tbody></table></div>";
+  }
+
+  function drawCamp() {
+    var q = ($("csearch") ? $("csearch").value : "").trim().toLowerCase();
+    var list = camp.items.filter(function (x) {
+      return !q || (x.name + " " + x.raw + " " + x.emoji).toLowerCase().indexOf(q) >= 0;
+    });
+    var h = ['<input class="csearch" id="csearch" type="search" placeholder="광고 이름으로 찾기" value="' + esc(q) + '">'];
+    if (!list.length) {
+      h.push('<div class="cempty">찾는 광고가 없습니다.</div>');
+    } else {
+      h.push('<div class="clist">');
+      list.forEach(function (x) {
+        var on = !!openCamp[x.name];
+        h.push('<section class="citem">');
+        h.push('<button class="chead" type="button" data-n="' + esc(x.name) + '" aria-expanded="' + on + '">');
+        h.push('<span class="cemo">' + esc(x.emoji || "·") + "</span><span>");
+        h.push('<span class="cname">' + esc(x.name) + "</span>");
+        h.push('<div class="cmeta"><span' + (x.state === "운영중" ? ' class="on"' : "") + ">" +
+               esc(x.state) + "</span> · " + esc(x.period) + "</div></span>");
+        h.push('<span class="cspend">' + esc(x.spend) + "</span></button>");
+        if (on) h.push('<div class="cbody">' + campTable(x) + "</div>");
+        h.push("</section>");
+      });
+      h.push("</div>");
+    }
+    h.push('<div class="stamp">' + esc(camp.cutoff) + " 까지 · 광고 " + camp.items.length +
+           "건 · " + esc(camp.generated) + " 생성</div>");
+    $("csheet").innerHTML = h.join("");
+  }
+
+  $("csheet").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest(".chead") : null;
+    if (!b) return;
+    var n = b.getAttribute("data-n");
+    openCamp[n] = !openCamp[n];
+    drawCamp();
+  });
+  $("csheet").addEventListener("input", function (e) {
+    if (e.target.id === "csearch") {
+      var v = e.target.value, pos = e.target.selectionStart;
+      drawCamp();
+      var el = $("csearch");
+      if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) {} }
+    }
+  });
+  $("tabDay").addEventListener("click", function () { showTab("day"); });
+  $("tabCamp").addEventListener("click", function () { showTab("camp"); });
+
   // ── 캘린더 ──────────────────────────────
   // 날짜가 쌓이면 화살표만으로는 멀리 못 간다. 가운데 날짜를 눌러 연다.
   // 보고서가 있는 날만 누를 수 있고, 없는 날은 흐리게 둔다.
@@ -618,6 +751,7 @@
         store(PW_KEY, pw);
         $("err").textContent = "";
         $("gate").hidden = true;
+        $("tabs").hidden = false;
         show(j, false);
       });
     }).catch(function (e) {
