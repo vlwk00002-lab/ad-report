@@ -192,6 +192,13 @@
   .ctable{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .ctable th.l,.ctable td.l{position:sticky;left:0;z-index:1;background:var(--paper)}
   .ctable th.l{background:var(--band)}
+  .ctable tr.mrow{cursor:pointer}
+  .ctable tr.mrow:hover td{background:var(--band)}
+  .ctable tr.mrow td.l{font-weight:600}
+  .caret{display:inline-block;width:11px;color:var(--mute);font-size:9px}
+  .ctable tr.drow td{color:var(--ink2);font-size:12px}
+  .ctable tr.drow td.l{padding-left:26px;font-weight:400;color:var(--mute)}
+  .cnote{color:var(--mute);font-size:11px;line-height:1.7;margin-top:9px}
   .cbody table{font-size:12.5px}
   .cbody td.l{font-weight:600}
   .cbody tr:last-child td{font-weight:700;border-top:1px solid var(--line)}
@@ -577,7 +584,7 @@
   // ── 광고별 보기 ─────────────────────────
   // 날짜별이 주(主)다. 광고별은 끝난 광고를 나중에 찾기 위한 보조 화면이라
   // 처음 열 때만 내려받는다(날짜별 화면 속도를 건드리지 않으려고).
-  var camp = null, campErr = null, openCamp = {};
+  var camp = null, campErr = null, openCamp = {}, openMonth = {};
 
   function showTab(which) {
     var day = which === "day";
@@ -608,11 +615,31 @@
     camp.cols.forEach(function (c) { h.push("<th>" + esc(c) + "</th>"); });
     h.push("</tr></thead><tbody>");
     it.rows.forEach(function (r) {
-      h.push('<tr><td class="l">' + esc(r.label) + "</td>");
+      var hasD = !!(r.days && r.days.length);
+      var mk = it.name + "|" + r.label;
+      var on = hasD && !!openMonth[mk];
+      h.push(hasD ? '<tr class="mrow" data-m="' + esc(mk) + '">' : "<tr>");
+      h.push('<td class="l">' +
+             (hasD ? '<span class="caret">' + (on ? "\u25be" : "\u25b8") + "</span> " : "") +
+             esc(r.label) + "</td>");
       r.cells.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
       h.push("</tr>");
+      if (on) {
+        r.days.forEach(function (d) {
+          h.push('<tr class="drow"><td class="l">' + esc(d.label) + "</td>");
+          d.cells.forEach(function (v) { h.push('<td class="num">' + esc(v) + "</td>"); });
+          h.push("</tr>");
+        });
+      }
     });
-    return h.join("") + "</tbody></table></div>";
+    h.push("</tbody></table></div>");
+    if (it.rows.some(function (r) { return r.days && r.days.length; })) {
+      h.push('<div class="cnote">월을 누르면 그 달의 일자별로 펼쳐집니다. ' +
+             "일자는 그날 하루치이고, 아무 일도 없던 날은 줄을 만들지 않습니다.<br>" +
+             "광고를 멈춘 뒤에도 유입은 며칠 더 들어오므로, 광고비가 0원인 날이나 " +
+             "유입률이 100%를 넘는 날이 나올 수 있습니다. 오류가 아닙니다.</div>");
+    }
+    return h.join("");
   }
 
   function drawCamp() {
@@ -652,11 +679,20 @@
   }
 
   $("csheet").addEventListener("click", function (e) {
-    var b = e.target.closest ? e.target.closest(".chead") : null;
-    if (!b) return;
-    var n = b.getAttribute("data-n");
-    openCamp[n] = !openCamp[n];
-    drawCamp();
+    if (!e.target.closest) return;
+    var b = e.target.closest(".chead");
+    if (b) {                                  // 광고 줄 = 펼치기/접기
+      var n = b.getAttribute("data-n");
+      openCamp[n] = !openCamp[n];
+      drawCamp();
+      return;
+    }
+    var m = e.target.closest("tr.mrow");      // 월 줄 = 그 달의 일자별 펼치기
+    if (m) {
+      var k = m.getAttribute("data-m");
+      openMonth[k] = !openMonth[k];
+      drawCamp();
+    }
   });
   var composing = false;
   $("csheet").addEventListener("compositionstart", function (e) {
